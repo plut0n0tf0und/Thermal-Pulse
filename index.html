@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thermal Pulse — Global Temperature Anomalies</title>
+  <meta name="description" content="An interactive visualization of NASA GISS global temperature anomaly data from 1880 to 2024, revealing 145 years of planetary warming.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Urbanist:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================
+       1. VARIABLES & RESET
+       ============================================ */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* Screen-reader only utility */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    :root {
+      /* 60% — Dominant (backgrounds & surfaces) */
+      --bg-void: #06060B;
+      --bg-primary: #09090F;
+      --bg-surface: #101018;
+      --bg-elevated: #16162A;
+
+      /* 30% — Secondary (text & borders) */
+      --text-primary: #F0ECE6;
+      --text-secondary: #B0ACBA;
+      --text-muted: #8B8698;
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --border-light: rgba(255, 255, 255, 0.10);
+
+      /* 10% — Accent (interactive & highlights) */
+      --accent: #FF6B4A;
+      --accent-soft: #FF8B6E;
+      --accent-dim: rgba(255, 107, 74, 0.12);
+      --accent-glow: rgba(255, 107, 74, 0.20);
+      --cool: #3A7BD5;
+      --cool-dim: rgba(58, 123, 213, 0.15);
+
+      /* Spacing */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 32px;
+      --space-xl: 64px;
+      --space-2xl: 120px;
+
+      /* Radius */
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+
+      /* Transitions */
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --duration: 0.4s;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Skip to content link */
+    .skip-link {
+      position: absolute;
+      top: -100%;
+      left: 16px;
+      z-index: 200;
+      padding: 12px 24px;
+      background: var(--accent);
+      color: #fff;
+      font-family: 'Urbanist', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+      transition: top 0.2s ease;
+    }
+    .skip-link:focus {
+      top: 16px;
+    }
+
+    body {
+      font-family: 'Urbanist', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      background: var(--bg-void);
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    /* ============================================
+       2. SCROLLBAR
+       ============================================ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-void); }
+    ::-webkit-scrollbar-thumb {
+      background: var(--text-muted);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
+
+    /* ============================================
+       3. BACKGROUND EFFECTS
+       ============================================ */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 15% 40%, rgba(255, 107, 74, 0.04) 0%, transparent 70%),
+        radial-gradient(ellipse 70% 50% at 85% 25%, rgba(58, 123, 213, 0.03) 0%, transparent 70%),
+        radial-gradient(ellipse 90% 70% at 50% 90%, rgba(255, 107, 74, 0.02) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ============================================
+       4. TYPOGRAPHY
+       ============================================ */
+    h1, h2, h3, h4, h5, h6 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .label {
+      font-family: 'Urbanist', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+    }
+
+    /* ============================================
+       5. LAYOUT
+       ============================================ */
+    .container {
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 var(--space-lg);
+      position: relative;
+      z-index: 1;
+    }
+
+    section {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ============================================
+       6. NAVIGATION
+       ============================================ */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: var(--space-md) 0;
+      background: rgba(6, 6, 11, 0.7);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background var(--duration) var(--ease-out);
+    }
+
+    nav .container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+      color: var(--text-primary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .nav-logo .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+      animation: pulse 3s ease-in-out infinite;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: var(--space-lg);
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-family: 'Urbanist', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color var(--duration) var(--ease-out);
+      position: relative;
+      padding: 4px 0;
+    }
+
+    .nav-links a::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 0;
+      width: 0;
+      height: 1px;
+      background: var(--accent);
+      transition: width var(--duration) var(--ease-out);
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .nav-links a:hover::after {
+      width: 100%;
+    }
+
+    /* ============================================
+       7. HERO SECTION
+       ============================================ */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: var(--space-2xl) 0 var(--space-xl);
+      position: relative;
+    }
+
+    .hero-label {
+      margin-bottom: var(--space-lg);
+      opacity: 0;
+      transform: translateY(20px);
+      animation: revealUp 0.8s var(--ease-out) 0.2s forwards;
+    }
+
+    .hero-temp {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px;
+      margin-bottom: var(--space-md);
+      opacity: 0;
+      transform: translateY(30px);
+      animation: revealUp 0.8s var(--ease-out) 0.4s forwards;
+    }
+
+    .hero-temp-value {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(72px, 12vw, 140px);
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #FFFFFF 0%, var(--text-primary) 40%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+
+    .hero-temp-unit {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: clamp(28px, 4vw, 48px);
+      color: var(--text-secondary);
+      line-height: 1;
+    }
+
+    .hero-subtitle {
+      font-family: 'Urbanist', sans-serif;
+      font-size: 18px;
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-sm);
+      opacity: 0;
+      transform: translateY(20px);
+      animation: revealUp 0.8s var(--ease-out) 0.6s forwards;
+    }
+
+    .hero-source {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-muted);
+      opacity: 0;
+      transform: translateY(20px);
+      animation: revealUp 0.8s var(--ease-out) 0.8s forwards;
+    }
+
+    .hero-source span {
+      color: var(--accent);
+    }
+
+    .scroll-indicator {
+      position: absolute;
+      bottom: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-sm);
+      opacity: 0;
+      animation: revealUp 0.8s var(--ease-out) 1.2s forwards;
+    }
+
+    .scroll-indicator span {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+    }
+
+    .scroll-line {
+      width: 1px;
+      height: 36px;
+      background: linear-gradient(to bottom, var(--accent), transparent);
+      transform-origin: top;
+      animation: scrollPulse 2.5s ease-in-out infinite 1.5s;
+    }
+
+    /* ============================================
+       8. CHART SECTION
+       ============================================ */
+    .chart-section {
+      padding: var(--space-xl) 0 var(--space-2xl);
+    }
+
+    .chart-header {
+      margin-bottom: var(--space-xl);
+    }
+
+    .chart-header h2 {
+      font-size: clamp(32px, 4vw, 48px);
+      margin-bottom: var(--space-sm);
+    }
+
+    .chart-header p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 520px;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+      overflow: hidden;
+      transition: border-color var(--duration) var(--ease-out);
+    }
+
+    .chart-wrapper:hover {
+      border-color: var(--border-light);
+    }
+
+    .chart-wrapper::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, var(--accent-dim) 0%, transparent 60%);
+      opacity: 0;
+      transition: opacity 0.6s var(--ease-out);
+      pointer-events: none;
+    }
+
+    .chart-wrapper:hover::before {
+      opacity: 1;
+    }
+
+    #chart-container {
+      width: 100%;
+      position: relative;
+    }
+
+    #chart-container svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* Chart tooltip */
+    .chart-tooltip {
+      position: absolute;
+      background: rgba(16, 16, 24, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.2s ease, transform 0.2s var(--ease-out);
+      z-index: 10;
+      white-space: nowrap;
+    }
+
+    .chart-tooltip.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .chart-tooltip .tt-year {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .chart-tooltip .tt-value {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .chart-tooltip .tt-value.warm { color: var(--accent); }
+    .chart-tooltip .tt-value.cool { color: var(--cool); }
+
+    .chart-tooltip .tt-label {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ============================================
+       9. STATS SECTION
+       ============================================ */
+    .stats-section {
+      padding: 0 0 var(--space-2xl);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--space-lg);
+    }
+
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg) var(--space-lg);
+      position: relative;
+      overflow: hidden;
+      transition:
+        transform var(--duration) var(--ease-out),
+        border-color var(--duration) var(--ease-out),
+        box-shadow var(--duration) var(--ease-out);
+      cursor: default;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, var(--accent-dim) 0%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.5s var(--ease-out);
+      pointer-events: none;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(255, 107, 74, 0.15);
+      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 107, 74, 0.06);
+    }
+
+    .stat-card:hover::before {
+      opacity: 1;
+    }
+
+    .stat-card .stat-number {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(36px, 3.5vw, 52px);
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1;
+      margin-bottom: var(--space-sm);
+      position: relative;
+    }
+
+    .stat-card .stat-number.accent {
+      color: var(--accent);
+    }
+
+    .stat-card .stat-title {
+      font-family: 'Urbanist', sans-serif;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: var(--space-xs);
+    }
+
+    .stat-card .stat-desc {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ============================================
+       10. WARMING STRIPES SECTION
+       ============================================ */
+    .stripes-section {
+      padding: 0 0 var(--space-2xl);
+    }
+
+    .stripes-header {
+      margin-bottom: var(--space-lg);
+    }
+
+    .stripes-header h2 {
+      font-size: clamp(28px, 3.5vw, 40px);
+      margin-bottom: var(--space-sm);
+    }
+
+    .stripes-header p {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 480px;
+    }
+
+    .stripes-wrapper {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-lg);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .stripes-container {
+      display: flex;
+      height: 120px;
+      gap: 1.5px;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .stripe {
+      flex: 1;
+      min-width: 0;
+      border-radius: 2px;
+      transition:
+        transform 0.3s var(--ease-out),
+        opacity 0.3s var(--ease-out),
+        filter 0.3s var(--ease-out);
+      cursor: crosshair;
+      position: relative;
+    }
+
+    .stripes-container:hover .stripe {
+      opacity: 0.5;
+      filter: saturate(0.6);
+    }
+
+    .stripes-container:hover .stripe:hover {
+      opacity: 1;
+      filter: saturate(1);
+      transform: scaleX(2.2) scaleY(1.08);
+      z-index: 2;
+      border-radius: 3px;
+    }
+
+    .stripes-legend {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: var(--space-md);
+      padding: 0 var(--space-xs);
+    }
+
+    .stripes-legend span {
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .stripes-legend .legend-gradient {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .legend-bar {
+      width: 80px;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(to right, #2166ac, #6a6a7a, var(--accent));
+    }
+
+    .legend-bar-label {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* Stripe tooltip */
+    .stripe-tooltip {
+      position: absolute;
+      bottom: calc(100% + 12px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(16, 16, 24, 0.92);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      white-space: nowrap;
+      z-index: 20;
+    }
+
+    .stripe:hover .stripe-tooltip {
+      opacity: 1;
+    }
+
+    .stripe-tooltip .stt-year {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text-primary);
+    }
+
+    .stripe-tooltip .stt-value {
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    /* ============================================
+       11. FOOTER
+       ============================================ */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: var(--space-xl) 0;
+      position: relative;
+      z-index: 1;
+    }
+
+    footer .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-left p {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .footer-left a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color var(--duration);
+    }
+
+    .footer-left a:hover {
+      color: var(--accent-soft);
+    }
+
+    .footer-right p {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+
+    /* ============================================
+       12. ANIMATIONS
+       ============================================ */
+    @keyframes revealUp {
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 8px var(--accent-glow); }
+      50% { box-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(255,107,74,0.08); }
+    }
+
+    @keyframes scrollPulse {
+      0%, 100% { opacity: 0.3; transform: scaleY(0.5); }
+      50% { opacity: 0.8; transform: scaleY(1); }
+    }
+
+    /* Scroll reveal utility */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.8s var(--ease-out), transform 0.8s var(--ease-out);
+    }
+
+    .reveal.revealed {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Stagger children */
+    .reveal-stagger > * {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+    }
+
+    .reveal-stagger.revealed > * {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-stagger.revealed > *:nth-child(1) { transition-delay: 0s; }
+    .reveal-stagger.revealed > *:nth-child(2) { transition-delay: 0.1s; }
+    .reveal-stagger.revealed > *:nth-child(3) { transition-delay: 0.2s; }
+
+    /* ============================================
+       13. FOCUS STYLES (WCAG 2.4.7 / 2.4.11)
+       ============================================ */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: 4px;
+    }
+
+    a:focus-visible,
+    button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    /* ============================================
+       14. REDUCED MOTION (WCAG 2.3.3)
+       ============================================ */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+
+      .reveal {
+        opacity: 1;
+        transform: none;
+      }
+
+      .reveal-stagger > * {
+        opacity: 1;
+        transform: none;
+      }
+
+      .hero-label,
+      .hero-temp,
+      .hero-subtitle,
+      .hero-source,
+      .scroll-indicator {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    /* ============================================
+       15. RESPONSIVE
+       ============================================ */
+    @media (max-width: 900px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-md);
+      }
+
+      .stripes-container {
+        height: 80px;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      footer .container {
+        flex-direction: column;
+        gap: var(--space-md);
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Skip to content (WCAG 2.4.1) -->
+  <a href="#overview" class="skip-link" id="skip-link">Skip to main content</a>
+
+  <!-- ========== NAVIGATION ========== -->
+  <nav aria-label="Main navigation">
+    <div class="container">
+      <a href="#" class="nav-logo" id="nav-logo" aria-label="Thermal Pulse — home">
+        <span class="dot" aria-hidden="true"></span>
+        Thermal Pulse
+      </a>
+      <ul class="nav-links" role="list">
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#timeline">Timeline</a></li>
+        <li><a href="#stripes">Every Year</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <main>
+    <!-- ========== HERO ========== -->
+    <section class="hero" id="overview" aria-labelledby="hero-heading">
+      <h1 id="hero-heading" class="sr-only">Global Temperature Anomaly: +1.29°C above baseline in 2024</h1>
+      <div class="hero-label label" aria-hidden="true">Global Surface Temperature Anomaly — 2024</div>
+      <div class="hero-temp" aria-hidden="true">
+        <span class="hero-temp-value" id="heroTemp">+0.00</span>
+        <span class="hero-temp-unit">°C</span>
+      </div>
+      <p class="hero-subtitle">above 1951–1980 average baseline</p>
+      <p class="hero-source">Source: NASA Goddard Institute for Space Studies &nbsp;·&nbsp; <span>145 years of data</span></p>
+      <div class="scroll-indicator" aria-hidden="true">
+        <span>Explore the data</span>
+        <div class="scroll-line"></div>
+      </div>
+    </section>
+
+    <!-- ========== CHART ========== -->
+    <section class="chart-section" id="timeline">
+      <div class="container">
+        <div class="chart-header reveal">
+          <div class="label" style="margin-bottom: 12px;">Temperature Timeline</div>
+          <h2>145 Years of Warming</h2>
+          <p>Each point represents the annual mean global surface temperature anomaly relative to the 1951–1980 average.</p>
+        </div>
+        <div class="chart-wrapper reveal" id="chart-wrapper">
+          <div id="chart-container" role="img" aria-label="Line chart showing global temperature anomaly from 1880 to 2024. The trend shows accelerating warming, reaching +1.29°C in 2024."></div>
+          <div class="chart-tooltip" id="chart-tooltip" role="tooltip" aria-hidden="true">
+            <div class="tt-year"></div>
+            <div class="tt-value"></div>
+            <div class="tt-label">vs. baseline</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== STATS ========== -->
+    <section class="stats-section">
+      <div class="container">
+        <div class="stats-grid reveal-stagger" id="stats-grid">
+          <div class="stat-card" id="stat-card-1">
+            <div class="stat-number accent">2024</div>
+            <div class="stat-title">Hottest year on record</div>
+            <div class="stat-desc">Surpassing all previous annual measurements in the 145-year temperature record.</div>
+          </div>
+          <div class="stat-card" id="stat-card-2">
+            <div class="stat-number accent" id="statAnomaly">+1.29°</div>
+            <div class="stat-title">Current anomaly</div>
+            <div class="stat-desc">Degrees Celsius above the 1951–1980 global mean surface temperature baseline.</div>
+          </div>
+          <div class="stat-card" id="stat-card-3">
+            <div class="stat-number">10 <span style="font-size: 0.5em; font-weight: 600; color: var(--text-secondary);" aria-hidden="true">of 10</span><span class="sr-only"> of 10</span></div>
+            <div class="stat-title">Warmest years since 2010</div>
+            <div class="stat-desc">Every single one of the ten warmest years on record has occurred after 2010.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== WARMING STRIPES ========== -->
+    <section class="stripes-section" id="stripes">
+      <div class="container">
+        <div class="stripes-header reveal">
+          <div class="label" style="margin-bottom: 12px;">Annual Temperature Stripes</div>
+          <h2>Every Year at a Glance</h2>
+          <p>Each stripe represents one year, colored by its temperature anomaly. Hover to explore.</p>
+        </div>
+        <div class="stripes-wrapper reveal">
+          <div class="stripes-container" id="stripes-container" role="img" aria-label="Warming stripes visualization: 145 vertical bars colored from blue (cooler) to coral (warmer) showing temperature anomaly for each year from 1880 to 2024."></div>
+          <div class="stripes-legend">
+            <span>1880</span>
+            <div class="legend-gradient">
+              <span class="legend-bar-label">Cooler</span>
+              <div class="legend-bar"></div>
+              <span class="legend-bar-label">Warmer</span>
+            </div>
+            <span>2024</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Live region for chart interaction announcements -->
+  <div id="chart-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- ========== FOOTER ========== -->
+  <footer>
+    <div class="container">
+      <div class="footer-left">
+        <p>Data: <a href="https://data.giss.nasa.gov/gistemp/" target="_blank" rel="noopener">NASA GISS Surface Temperature Analysis (GISTEMP v4)</a></p>
+        <p>Base period: 1951–1980 global mean. Annual mean land-ocean temperature index.</p>
+      </div>
+      <div class="footer-right">
+        <p>Built with care for the planet.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ========== JAVASCRIPT ========== -->
+  <script>
+    // ============================================
+    // 1. DATA — NASA GISS Annual Mean (°C relative to 1951-1980)
+    // ============================================
+    const data = [
+      [1880,-0.16],[1881,-0.08],[1882,-0.10],[1883,-0.17],[1884,-0.28],
+      [1885,-0.33],[1886,-0.31],[1887,-0.36],[1888,-0.17],[1889,-0.10],
+      [1890,-0.35],[1891,-0.22],[1892,-0.27],[1893,-0.31],[1894,-0.32],
+      [1895,-0.23],[1896,-0.09],[1897,-0.13],[1898,-0.26],[1899,-0.17],
+      [1900,-0.07],[1901,-0.15],[1902,-0.28],[1903,-0.37],[1904,-0.47],
+      [1905,-0.26],[1906,-0.22],[1907,-0.39],[1908,-0.43],[1909,-0.48],
+      [1910,-0.43],[1911,-0.44],[1912,-0.36],[1913,-0.35],[1914,-0.16],
+      [1915,-0.11],[1916,-0.34],[1917,-0.46],[1918,-0.30],[1919,-0.28],
+      [1920,-0.27],[1921,-0.19],[1922,-0.28],[1923,-0.26],[1924,-0.27],
+      [1925,-0.20],[1926,-0.07],[1927,-0.18],[1928,-0.21],[1929,-0.36],
+      [1930,-0.11],[1931,-0.07],[1932,-0.12],[1933,-0.27],[1934,-0.13],
+      [1935,-0.20],[1936,-0.15],[1937,-0.03],[1938, 0.00],[1939,-0.02],
+      [1940, 0.13],[1941, 0.19],[1942, 0.15],[1943, 0.09],[1944, 0.21],
+      [1945, 0.09],[1946,-0.07],[1947,-0.03],[1948,-0.05],[1949,-0.08],
+      [1950,-0.17],[1951,-0.01],[1952, 0.02],[1953, 0.08],[1954,-0.13],
+      [1955,-0.15],[1956,-0.20],[1957, 0.04],[1958, 0.07],[1959, 0.03],
+      [1960,-0.02],[1961, 0.06],[1962, 0.03],[1963, 0.07],[1964,-0.20],
+      [1965,-0.11],[1966,-0.03],[1967,-0.02],[1968,-0.07],[1969, 0.08],
+      [1970, 0.04],[1971,-0.09],[1972, 0.02],[1973, 0.16],[1974,-0.07],
+      [1975,-0.01],[1976,-0.10],[1977, 0.18],[1978, 0.07],[1979, 0.16],
+      [1980, 0.26],[1981, 0.32],[1982, 0.14],[1983, 0.31],[1984, 0.16],
+      [1985, 0.12],[1986, 0.18],[1987, 0.34],[1988, 0.39],[1989, 0.27],
+      [1990, 0.45],[1991, 0.41],[1992, 0.22],[1993, 0.24],[1994, 0.31],
+      [1995, 0.45],[1996, 0.35],[1997, 0.46],[1998, 0.63],[1999, 0.40],
+      [2000, 0.42],[2001, 0.54],[2002, 0.63],[2003, 0.62],[2004, 0.54],
+      [2005, 0.68],[2006, 0.64],[2007, 0.66],[2008, 0.54],[2009, 0.64],
+      [2010, 0.72],[2011, 0.61],[2012, 0.65],[2013, 0.68],[2014, 0.75],
+      [2015, 0.90],[2016, 1.02],[2017, 0.92],[2018, 0.85],[2019, 0.98],
+      [2020, 1.02],[2021, 0.85],[2022, 0.89],[2023, 1.17],[2024, 1.29]
+    ];
+
+    // ============================================
+    // 2. UTILITY FUNCTIONS
+    // ============================================
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function formatTemp(v) {
+      return (v >= 0 ? '+' : '') + v.toFixed(2);
+    }
+
+    function getStripeColor(anomaly) {
+      const t = Math.max(0, Math.min(1, (anomaly + 0.5) / 2.0));
+      let r, g, b;
+      if (t < 0.35) {
+        const s = t / 0.35;
+        r = Math.round(lerp(33, 80, s));
+        g = Math.round(lerp(102, 90, s));
+        b = Math.round(lerp(172, 120, s));
+      } else if (t < 0.5) {
+        const s = (t - 0.35) / 0.15;
+        r = Math.round(lerp(80, 110, s));
+        g = Math.round(lerp(90, 106, s));
+        b = Math.round(lerp(120, 120, s));
+      } else {
+        const s = (t - 0.5) / 0.5;
+        r = Math.round(lerp(110, 255, s));
+        g = Math.round(lerp(106, 107, s));
+        b = Math.round(lerp(120, 74, s));
+      }
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // ============================================
+    // 3. HERO COUNTER ANIMATION
+    // ============================================
+    function animateCounter(el, target, duration = 2200) {
+      const start = performance.now();
+      function update(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 4);
+        el.textContent = formatTemp(target * eased);
+        if (progress < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+
+    // Start hero counter after a brief delay
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setTimeout(() => {
+      const heroEl = document.getElementById('heroTemp');
+      if (prefersReducedMotion) {
+        heroEl.textContent = formatTemp(1.29);
+      } else {
+        animateCounter(heroEl, 1.29);
+      }
+    }, prefersReducedMotion ? 0 : 600);
+
+    // ============================================
+    // 4. SVG CHART RENDERING
+    // ============================================
+    function renderChart() {
+      const container = document.getElementById('chart-container');
+      const W = 1200;
+      const H = 420;
+      const pad = { top: 30, right: 30, bottom: 50, left: 58 };
+      const cW = W - pad.left - pad.right;
+      const cH = H - pad.top - pad.bottom;
+
+      const minYear = 1880;
+      const maxYear = 2024;
+      const minTemp = -0.6;
+      const maxTemp = 1.5;
+
+      const xS = (yr) => pad.left + ((yr - minYear) / (maxYear - minYear)) * cW;
+      const yS = (tmp) => pad.top + cH - ((tmp - minTemp) / (maxTemp - minTemp)) * cH;
+
+      // Build SVG string
+      let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">`;
+
+      // Defs: gradients
+      svg += `<defs>
+        <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#3A7BD5"/>
+          <stop offset="45%" stop-color="#9A8CCC"/>
+          <stop offset="100%" stop-color="#FF6B4A"/>
+        </linearGradient>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#FF6B4A" stop-opacity="0.15"/>
+          <stop offset="70%" stop-color="#FF6B4A" stop-opacity="0.03"/>
+          <stop offset="100%" stop-color="#FF6B4A" stop-opacity="0"/>
+        </linearGradient>
+      </defs>`;
+
+      // Grid lines (horizontal)
+      const gridTemps = [-0.5, 0.0, 0.5, 1.0, 1.5];
+      gridTemps.forEach(t => {
+        const y = yS(t);
+        const isZero = t === 0;
+        svg += `<line x1="${pad.left}" y1="${y}" x2="${W - pad.right}" y2="${y}" 
+          stroke="${isZero ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)'}" 
+          stroke-width="${isZero ? 1 : 0.5}" 
+          ${isZero ? 'stroke-dasharray="4 4"' : ''}/>`;
+        svg += `<text x="${pad.left - 12}" y="${y + 4}" text-anchor="end" 
+          fill="${isZero ? '#B0ACBA' : '#8B8698'}" 
+          font-family="Urbanist, sans-serif" font-size="13" font-weight="500">
+          ${t >= 0 ? '+' : ''}${t.toFixed(1)}°</text>`;
+      });
+
+      // X-axis labels
+      const xLabels = [1880, 1900, 1920, 1940, 1960, 1980, 2000, 2024];
+      xLabels.forEach(yr => {
+        const x = xS(yr);
+        svg += `<text x="${x}" y="${H - 12}" text-anchor="middle" 
+          fill="#8B8698" font-family="Urbanist, sans-serif" font-size="13" font-weight="500">${yr}</text>`;
+      });
+
+      // Area fill path
+      let areaD = `M ${xS(data[0][0])} ${yS(minTemp)}`;
+      data.forEach(([yr, tmp]) => { areaD += ` L ${xS(yr)} ${yS(tmp)}`; });
+      areaD += ` L ${xS(data[data.length - 1][0])} ${yS(minTemp)} Z`;
+      svg += `<path d="${areaD}" fill="url(#areaGrad)" class="chart-area"/>`;
+
+      // Line path
+      let lineD = '';
+      data.forEach(([yr, tmp], i) => {
+        const x = xS(yr);
+        const y = yS(tmp);
+        lineD += i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`;
+      });
+      svg += `<path d="${lineD}" fill="none" stroke="url(#lineGrad)" stroke-width="2.5" 
+        stroke-linecap="round" stroke-linejoin="round" class="chart-line" id="chartLine"/>`;
+
+      // Latest point pulse
+      const lastD = data[data.length - 1];
+      const lx = xS(lastD[0]);
+      const ly = yS(lastD[1]);
+      svg += `<circle cx="${lx}" cy="${ly}" r="6" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.4">
+        <animate attributeName="r" values="6;14;6" dur="3s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.4;0;0.4" dur="3s" repeatCount="indefinite"/>
+      </circle>`;
+      svg += `<circle cx="${lx}" cy="${ly}" r="4" fill="var(--accent)"/>`;
+
+      // Interactive overlay rect
+      svg += `<rect x="${pad.left}" y="${pad.top}" width="${cW}" height="${cH}" 
+        fill="transparent" id="chartOverlay" style="cursor:crosshair"/>`;
+
+      // Crosshair group (hidden by default)
+      svg += `<g id="crosshairGroup" opacity="0">
+        <line id="crosshairLine" x1="0" y1="${pad.top}" x2="0" y2="${pad.top + cH}" 
+          stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3 3"/>
+        <circle id="crosshairDot" cx="0" cy="0" r="5" fill="var(--bg-surface)" 
+          stroke="var(--accent)" stroke-width="2"/>
+      </g>`;
+
+      svg += `</svg>`;
+      container.innerHTML = svg;
+
+      // Store scale functions for interaction
+      container._xS = xS;
+      container._yS = yS;
+      container._pad = pad;
+      container._cW = cW;
+      container._cH = cH;
+
+      // Animate line drawing
+      const line = document.getElementById('chartLine');
+      const pathLength = line.getTotalLength();
+      line.style.strokeDasharray = pathLength;
+      line.style.strokeDashoffset = pathLength;
+
+      // Animate area fade
+      const area = container.querySelector('.chart-area');
+      area.style.opacity = '0';
+
+      return { pathLength };
+    }
+
+    const chartInfo = renderChart();
+
+    // ============================================
+    // 5. CHART INTERACTION
+    // ============================================
+    function setupChartInteraction() {
+      const container = document.getElementById('chart-container');
+      const wrapper = document.getElementById('chart-wrapper');
+      const overlay = document.getElementById('chartOverlay');
+      const crosshairGroup = document.getElementById('crosshairGroup');
+      const crosshairLine = document.getElementById('crosshairLine');
+      const crosshairDot = document.getElementById('crosshairDot');
+      const tooltip = document.getElementById('chart-tooltip');
+      const ttYear = tooltip.querySelector('.tt-year');
+      const ttValue = tooltip.querySelector('.tt-value');
+
+      const svgEl = container.querySelector('svg');
+
+      function getMousePos(e) {
+        const rect = svgEl.getBoundingClientRect();
+        const scaleX = 1200 / rect.width;
+        const scaleY = 420 / rect.height;
+        return {
+          x: (e.clientX - rect.left) * scaleX,
+          y: (e.clientY - rect.top) * scaleY,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          rectLeft: rect.left,
+          rectTop: rect.top,
+          rectWidth: rect.width,
+          rectHeight: rect.height
+        };
+      }
+
+      function findNearest(svgX) {
+        const { _pad: pad, _cW: cW } = container;
+        const ratio = (svgX - pad.left) / cW;
+        const yearFloat = 1880 + ratio * (2024 - 1880);
+        let nearest = 0;
+        let minDist = Infinity;
+        data.forEach(([yr], i) => {
+          const dist = Math.abs(yr - yearFloat);
+          if (dist < minDist) { minDist = dist; nearest = i; }
+        });
+        return nearest;
+      }
+
+      overlay.addEventListener('mousemove', (e) => {
+        const pos = getMousePos(e);
+        const idx = findNearest(pos.x);
+        const [year, temp] = data[idx];
+        const x = container._xS(year);
+        const y = container._yS(temp);
+
+        crosshairGroup.setAttribute('opacity', '1');
+        crosshairLine.setAttribute('x1', x);
+        crosshairLine.setAttribute('x2', x);
+        crosshairDot.setAttribute('cx', x);
+        crosshairDot.setAttribute('cy', y);
+
+        // Update tooltip content
+        ttYear.textContent = year;
+        ttValue.textContent = formatTemp(temp) + '°C';
+        ttValue.className = 'tt-value ' + (temp >= 0 ? 'warm' : 'cool');
+
+        // Position tooltip (in wrapper coordinates)
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const tooltipX = pos.clientX - wrapperRect.left;
+        const tooltipY = pos.clientY - wrapperRect.top;
+
+        // Determine if tooltip should go left or right of cursor
+        const halfWidth = wrapperRect.width / 2;
+        const offsetX = tooltipX > halfWidth ? -140 : 20;
+
+        tooltip.style.left = (tooltipX + offsetX) + 'px';
+        tooltip.style.top = (tooltipY - 50) + 'px';
+        tooltip.classList.add('visible');
+
+        // Announce to screen readers via aria-live
+        if (typeof announceChartValue === 'function') announceChartValue(year, temp);
+      });
+
+      overlay.addEventListener('mouseleave', () => {
+        crosshairGroup.setAttribute('opacity', '0');
+        tooltip.classList.remove('visible');
+      });
+    }
+
+    setupChartInteraction();
+
+    // Debounced aria-live updater for chart interaction
+    let liveTimeout = null;
+    const chartLive = document.getElementById('chart-live');
+    function announceChartValue(year, temp) {
+      clearTimeout(liveTimeout);
+      liveTimeout = setTimeout(() => {
+        chartLive.textContent = `Year ${year}: temperature anomaly ${formatTemp(temp)} degrees Celsius`;
+      }, 300);
+    }
+
+    // ============================================
+    // 6. WARMING STRIPES
+    // ============================================
+    function renderStripes() {
+      const container = document.getElementById('stripes-container');
+      let html = '';
+      data.forEach(([year, temp]) => {
+        const color = getStripeColor(temp);
+        const valueClass = temp >= 0 ? 'warm' : 'cool';
+        const valueColor = temp >= 0 ? 'var(--accent)' : 'var(--cool)';
+        html += `<div class="stripe" style="background:${color}" title="${year}: ${formatTemp(temp)}°C">
+          <div class="stripe-tooltip">
+            <div class="stt-year">${year}</div>
+            <div class="stt-value" style="color:${valueColor}">${formatTemp(temp)}°C</div>
+          </div>
+        </div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    renderStripes();
+
+    // ============================================
+    // 7. SCROLL REVEAL & CHART ANIMATION
+    // ============================================
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+          revealObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.reveal, .reveal-stagger').forEach(el => {
+      revealObserver.observe(el);
+    });
+
+    // Chart line draw animation on scroll
+    const chartObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const line = document.getElementById('chartLine');
+          const area = document.querySelector('.chart-area');
+
+          if (prefersReducedMotion) {
+            line.style.strokeDasharray = 'none';
+            line.style.strokeDashoffset = '0';
+            area.style.opacity = '1';
+          } else {
+            line.style.transition = 'stroke-dashoffset 2.8s cubic-bezier(0.16, 1, 0.3, 1)';
+            line.style.strokeDashoffset = '0';
+
+            setTimeout(() => {
+              area.style.transition = 'opacity 1.2s ease-out';
+              area.style.opacity = '1';
+            }, 1400);
+          }
+
+          chartObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+
+    const chartWrapper = document.getElementById('chart-wrapper');
+    if (chartWrapper) chartObserver.observe(chartWrapper);
+
+    // ============================================
+    // 8. SMOOTH NAV BACKGROUND ON SCROLL
+    // ============================================
+    const nav = document.querySelector('nav');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 80) {
+        nav.style.background = 'rgba(6, 6, 11, 0.92)';
+      } else {
+        nav.style.background = 'rgba(6, 6, 11, 0.7)';
+      }
+    }, { passive: true });
+
+    // ============================================
+    // 9. SMOOTH SCROLL FOR NAV LINKS
+    // ============================================
+    document.querySelectorAll('.nav-links a[href^="#"]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const target = document.querySelector(link.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
